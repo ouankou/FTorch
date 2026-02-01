@@ -66,7 +66,7 @@ typedef enum {
  * @param shape of the Tensor
  * @param data type of the elements of the Tensor
  * @param device type used (cpu, CUDA, etc.)
- * @param device index for the CUDA case
+ * @param device index for GPU devices
  * @param whether gradient is required
  */
 EXPORT_C torch_tensor_t torch_empty(int ndim, const int64_t *shape, torch_data_t dtype,
@@ -79,7 +79,7 @@ EXPORT_C torch_tensor_t torch_empty(int ndim, const int64_t *shape, torch_data_t
  * @param shape of the Tensor
  * @param data type of the elements of the Tensor
  * @param device type used (cpu, CUDA, etc.)
- * @param device index for the CUDA case
+ * @param device index for GPU devices
  * @param whether gradient is required
  */
 EXPORT_C torch_tensor_t torch_zeros(int ndim, const int64_t *shape, torch_data_t dtype,
@@ -92,7 +92,7 @@ EXPORT_C torch_tensor_t torch_zeros(int ndim, const int64_t *shape, torch_data_t
  * @param shape of the Tensor
  * @param data type of the elements of the Tensor
  * @param device type used (cpu, CUDA, etc.)
- * @param device index for the CUDA case
+ * @param device index for GPU devices
  * @param whether gradient is required
  */
 EXPORT_C torch_tensor_t torch_ones(int ndim, const int64_t *shape, torch_data_t dtype,
@@ -108,7 +108,7 @@ EXPORT_C torch_tensor_t torch_ones(int ndim, const int64_t *shape, torch_data_t 
  * @param strides to take through data
  * @param data type of the elements of the Tensor
  * @param device type used (cpu, CUDA, etc.)
- * @param device index for the CUDA case
+ * @param device index for GPU devices
  * @param whether gradient is required
  * @return Torch Tensor interpretation of the data pointed at
  */
@@ -336,7 +336,7 @@ EXPORT_C void torch_tensor_get_gradient(const torch_tensor_t tensor,
  * Torch Module
  * @param filename where TorchScript description of model is stored
  * @param device type used (cpu, CUDA, etc.)
- * @param device index for the CUDA case
+ * @param device index for GPU devices
  * @param whether gradient is required
  * @param whether model is being trained
  * @return Torch Module loaded in from file
@@ -360,6 +360,20 @@ EXPORT_C void torch_jit_module_forward(const torch_jit_script_module_t module,
                                        const torch_tensor_t *inputs, const int nin,
                                        torch_tensor_t *outputs, const int nout,
                                        const bool requires_grad);
+
+/**
+ * Function to print out the parameters of a Torch Module
+ *
+ * @param Torch Module to print the parameters of
+ */
+EXPORT_C void torch_jit_module_print_parameters(const torch_jit_script_module_t module);
+
+/**
+ * Function to determine whether a Torch Model is in training mode
+ * @param Torch Model to interrogate
+ * @return whether the Torch Model is in training mode
+ */
+EXPORT_C bool torch_jit_module_is_training(const torch_jit_script_module_t module);
 
 /**
  * Function to delete a Torch Module to clean up
