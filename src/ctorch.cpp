@@ -6,6 +6,8 @@
 #include <torch/script.h>
 #include <torch/torch.h>
 
+#include <mutex>
+
 #include "ctorch.h"
 
 #ifndef GPU_DEVICE
@@ -30,6 +32,23 @@ void ctorch_error(const std::string &message,
 void ctorch_warn(const std::string &message) {
   std::cerr << "[WARNING]: " << message << std::endl;
 }
+
+#if GPU_DEVICE == GPU_DEVICE_XPU
+namespace {
+std::once_flag xpu_init_once;
+int xpu_device_count = -1;
+
+void init_xpu_device() {
+  std::call_once(xpu_init_once, []() {
+    if (!torch::xpu::is_available()) {
+      ctorch_error("XPU device requested but torch::xpu::is_available() returned false");
+    }
+    at::globalContext().lazyInitDevice(c10::DeviceType::XPU);
+    xpu_device_count = torch::xpu::device_count();
+  });
+}
+} // namespace
+#endif
 
 // =============================================================================
 // --- Constant expressions
@@ -124,11 +143,12 @@ const auto get_libtorch_device(torch_device_t device_type, int device_index) {
       ctorch_warn("device index unset, defaulting to 0");
       device_index = 0;
     }
-    if (device_index >= 0 && device_index < torch::xpu::device_count()) {
+    init_xpu_device();
+    if (device_index >= 0 && device_index < xpu_device_count) {
       return torch::Device(torch::kXPU, device_index);
     } else {
       std::cerr << "[ERROR]: invalid device index " << device_index
-                << " for XPU device count " << torch::xpu::device_count() << std::endl;
+                << " for XPU device count " << xpu_device_count << std::endl;
       exit(EXIT_FAILURE);
     }
 #endif
@@ -575,6 +595,13 @@ void torch_jit_module_forward(const torch_jit_script_module_t module,
                               const torch_tensor_t *inputs, const int nin,
                               torch_tensor_t *outputs, const int nout,
                               const bool requires_grad = false) {
+  auto copy_output = [](torch::Tensor *target, torch::Tensor source) {
+    if (source.device() != target->device()) {
+      source = source.to(target->device());
+    }
+    target->copy_(source);
+  };
+
   torch::AutoGradMode enable_grad(requires_grad);
   // Here we cast the pointers we recieved in to Tensor objects
   auto model = static_cast<torch::jit::script::Module *>(module);
@@ -598,11 +625,11 @@ void torch_jit_module_forward(const torch_jit_script_module_t module,
     auto model_out = model->forward(inputs_vec);
     if (model_out.isTensor()) {
       // Single output models will return a tensor directly.
-      std::move(*out[0]) = model_out.toTensor();
+      copy_output(out[0], model_out.toTensor());
     } else if (model_out.isTuple()) {
       // Multiple output models will return a tuple => cast to tensors.
       for (int i = 0; i < nout; ++i) {
-        std::move(*out[i]) = model_out.toTuple()->elements()[i].toTensor();
+        copy_output(out[i], model_out.toTuple()->elements()[i].toTensor());
       }
     } else {
       // If for some reason the forward method does not return a Tensor it
