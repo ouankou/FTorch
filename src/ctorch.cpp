@@ -6,6 +6,8 @@
 #include <torch/script.h>
 #include <torch/torch.h>
 
+#include <mutex>
+
 #include "ctorch.h"
 
 #ifndef GPU_DEVICE
@@ -30,6 +32,23 @@ void ctorch_error(const std::string &message,
 void ctorch_warn(const std::string &message) {
   std::cerr << "[WARNING]: " << message << std::endl;
 }
+
+#if GPU_DEVICE == GPU_DEVICE_XPU
+namespace {
+std::once_flag xpu_init_once;
+int xpu_device_count = -1;
+
+void init_xpu_device() {
+  std::call_once(xpu_init_once, []() {
+    if (!torch::xpu::is_available()) {
+      ctorch_error("XPU device requested but torch::xpu::is_available() returned false");
+    }
+    at::globalContext().lazyInitDevice(c10::DeviceType::XPU);
+    xpu_device_count = torch::xpu::device_count();
+  });
+}
+} // namespace
+#endif
 
 // =============================================================================
 // --- Constant expressions
@@ -124,11 +143,12 @@ const auto get_libtorch_device(torch_device_t device_type, int device_index) {
       ctorch_warn("device index unset, defaulting to 0");
       device_index = 0;
     }
-    if (device_index >= 0 && device_index < torch::xpu::device_count()) {
+    init_xpu_device();
+    if (device_index >= 0 && device_index < xpu_device_count) {
       return torch::Device(torch::kXPU, device_index);
     } else {
       std::cerr << "[ERROR]: invalid device index " << device_index
-                << " for XPU device count " << torch::xpu::device_count() << std::endl;
+                << " for XPU device count " << xpu_device_count << std::endl;
       exit(EXIT_FAILURE);
     }
 #endif
