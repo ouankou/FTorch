@@ -124,6 +124,7 @@
                                 <a class="nav-link" href="generic_example.html">Generic Example</a>
               <a class="nav-link" href="worked_examples.html">Worked Examples</a>
               <a class="nav-link" href="tensor.html">Tensor API</a>
+              <a class="nav-link" href="optimizers.html">Optimizers API</a>
               <a class="nav-link" href="transposing.html">When to transpose data</a>
               <a class="nav-link" href="batching.html">Batching</a>
               <a class="nav-link" href="offline.html">Offline training</a>
@@ -143,6 +144,7 @@
                 <nav class="nav nav-pills flex-column">
                                 <a class="nav-link" href="../developer/developer.html">Developer Guide</a>
               <a class="nav-link" href="../developer/testing.html">FTorch test suite</a>
+              <a class="nav-link" href="../developer/release_checklist.html">Release Checklist</a>
 
                 </nav>
               <a class="nav-link" href="../LICENSE.html">FTorch License</a>
@@ -222,7 +224,7 @@ Error: There is no specific subroutine for the generic ‘torch_tensor_from_arra
 Error: There is no specific subroutine for the generic ‘torch_tensor_from_array’ at (1)
 </code></pre></div>
 
-<h5 id="int64-versions-of-ftorch-for-large-tensors"><code>int64</code> versions of <code>ftorch</code> for large tensors</h5>
+<h4 id="int64-versions-of-ftorch-for-large-tensors"><code>int64</code> versions of <code>ftorch</code> for large tensors</h4>
 <p>An alternative cause of the 'no specific subroutine' error can occur if your tensor
 dimension is larger than FTorch supports by default.
 Currently FTorch represents the number of elements in an array dimension using
@@ -255,13 +257,13 @@ require). See the <a href="tensor.html">tensor documentation</a> for more detail
 <p>If you are building FTorch with gfortran and are specifying the Fortran 2008
 standard (e.g., with the compiler flag <code>-std=f2008</code> or by default) then you may
 get compiler warnings of the form:</p>
-<div class="codehilite"><pre><span></span><code><span class="n">Warning</span><span class="o">:</span><span class="w"> </span><span class="n">The</span><span class="w"> </span><span class="n">structure</span><span class="w"> </span><span class="n">constructor</span><span class="w"> </span><span class="n">at</span><span class="w"> </span><span class="o">(</span><span class="mi">1</span><span class="o">)</span><span class="w"> </span><span class="n">has</span><span class="w"> </span><span class="n">been</span><span class="w"> </span><span class="n">finalized</span><span class="o">.</span><span class="w"> </span><span class="n">This</span><span class="w"> </span><span class="n">feature</span><span class="w"> </span><span class="n">was</span><span class="w"> </span><span class="n">removed</span><span class="w"> </span><span class="n">by</span><span class="w"> </span><span class="n">f08</span><span class="o">/</span><span class="mi">0011</span><span class="o">.</span><span class="w"> </span><span class="n">Use</span><span class="w"> </span><span class="o">-</span><span class="n">std</span><span class="o">=</span><span class="n">f2018</span><span class="w"> </span><span class="n">or</span><span class="w"> </span><span class="o">-</span><span class="n">std</span><span class="o">=</span><span class="n">gnu</span><span class="w"> </span><span class="n">to</span><span class="w"> </span><span class="n">eliminate</span><span class="w"> </span><span class="n">the</span><span class="w"> </span><span class="n">finalization</span><span class="o">.</span>
+<div class="codehilite"><pre><span></span><code><span class="n">Warning</span><span class="p">:</span><span class="w"> </span><span class="n">The</span><span class="w"> </span><span class="n">structure</span><span class="w"> </span><span class="n">constructor</span><span class="w"> </span><span class="n">at</span><span class="w"> </span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="w"> </span><span class="n">has</span><span class="w"> </span><span class="n">been</span><span class="w"> </span><span class="n">finalized</span><span class="o">.</span><span class="w"> </span><span class="n">This</span><span class="w"> </span><span class="n">feature</span><span class="w"> </span><span class="n">was</span><span class="w"> </span><span class="n">removed</span><span class="w"> </span><span class="n">by</span><span class="w"> </span><span class="n">f08</span><span class="o">/</span><span class="mf">0011.</span><span class="w"> </span><span class="n">Use</span><span class="w"> </span><span class="o">-</span><span class="n">std</span><span class="o">=</span><span class="n">f2018</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="o">-</span><span class="n">std</span><span class="o">=</span><span class="n">gnu</span><span class="w"> </span><span class="n">to</span><span class="w"> </span><span class="n">eliminate</span><span class="w"> </span><span class="n">the</span><span class="w"> </span><span class="n">finalization</span><span class="o">.</span>
 </code></pre></div>
 
 <p>These warn that the structure finalizer of the
-<a href="../../module/ftorch.html">ftorch</a> derived type is triggered when a tensor
+<a href="../../type/torch_tensor.html">torch_tensor</a> derived type is triggered when a tensor
 goes out of scope, despite the fact that this feature was removed from the 2008
-standard. That is, the <a href="../../module/ftorch.html">ftorch</a>
+standard. That is, the <a href="../../proc/torch_tensor_delete.html">torch_tensor_delete</a>
 subroutine is called so that the associated memory is automatically freed.
 Firstly, this is the behaviour that we want so we should not be too concerned.
 Secondly, structure finalizers are not used anywhere in FTorch, so we believe
@@ -283,8 +285,8 @@ raised.</p>
 <p class="alert-title h4">Warning</p>
 <p>The code snippet above is <strong>not</strong> the intended way to create a tensor. The
 intended way is to use the provided API procedures such as
-<a href="../../module/ftorch.html">ftorch</a> or
-<a href="../../module/ftorch.html">ftorch</a>. The code snippet above is
+<a href="../../interface/torch_tensor_from_array.html">torch_tensor_from_array</a> or
+<a href="../../proc/torch_tensor_ones.html">torch_tensor_ones</a>. The code snippet above is
 only intended to illustrate the use of the structure constructor and the
 associated warning.</p>
 </div>

@@ -124,6 +124,7 @@
                                 <a class="nav-link" href="generic_example.html">Generic Example</a>
               <a class="nav-link" href="worked_examples.html">Worked Examples</a>
               <a class="nav-link active disabled" href="tensor.html">Tensor API</a>
+              <a class="nav-link" href="optimizers.html">Optimizers API</a>
               <a class="nav-link" href="transposing.html">When to transpose data</a>
               <a class="nav-link" href="batching.html">Batching</a>
               <a class="nav-link" href="offline.html">Offline training</a>
@@ -143,6 +144,7 @@
                 <nav class="nav nav-pills flex-column">
                                 <a class="nav-link" href="../developer/developer.html">Developer Guide</a>
               <a class="nav-link" href="../developer/testing.html">FTorch test suite</a>
+              <a class="nav-link" href="../developer/release_checklist.html">Release Checklist</a>
 
                 </nav>
               <a class="nav-link" href="../LICENSE.html">FTorch License</a>
@@ -228,14 +230,14 @@ argument (which would be the tensor itself). The naming pattern is similar for
 the other methods (simply drop the preceding <code>torch_tensor_</code>).</p>
 <h4 id="deallocation">Deallocation</h4>
 <p>We provide a subroutine for deallocating the memory associated with a
-<a href="../../module/ftorch.html">ftorch</a> object:
-<a href="../../module/ftorch.html">ftorch</a>. An interface
+<a href="../../type/torch_tensor.html">torch_tensor</a> object:
+<a href="../../proc/torch_tensor_delete.html">torch_tensor_delete</a>. An interface
 <a href="../../interface/torch_delete.html">torch_delete</a> is provided such that this can also
 be applied to arrays of tensors.</p>
 <p>Manually deallocating a tensor that you declared and constructed in your code is
 actually optional. If the tensor was declared in a subroutine then
-<a href="../../module/ftorch.html">ftorch</a> will get called as the
-finalizer of <a href="../../module/ftorch.html">ftorch</a> when it goes out of scope. If
+<a href="../../proc/torch_tensor_delete.html">torch_tensor_delete</a> will get called as the
+finalizer of <a href="../../type/torch_tensor.html">torch_tensor</a> when it goes out of scope. If
 the tensor was declared in a program then the finalizer won't get called, but
 this is not considered to be an issue, in the same way that in Fortran it
 doesn't matter if allocated arrays aren't deallocated at the end of the program.
@@ -306,16 +308,19 @@ destroyed because the call will have the form</p>
 <div class="codehilite"><pre><span></span><code><span class="n">a</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">func</span><span class="p">()</span>
 </code></pre></div>
 
-<h4 id="other-operators-acting-on-tensors">Other operators acting on tensors</h4>
-<p>We have also exposed the operators for taking the sum or mean over the entries
-in a tensor, which can be achieved with the subroutines
-<a href="../../proc/torch_tensor_sum.html">torch_tensor_sum</a> and
-<a href="../../proc/torch_tensor_mean.html">torch_tensor_mean</a>, respectively.</p>
 <div class="alert alert-info">
 <p class="alert-title h4">Note</p>
 <p>For a concrete example of how to compute mathematical expressions involving Torch
 tensors, see the <a href="worked_examples.html">autograd worked example</a>.</p>
 </div>
+<h4 id="other-operators-acting-on-tensors">Other operators acting on tensors</h4>
+<p>We have also exposed the operators for taking the sum or mean over the entries
+in a tensor, which can be achieved with the subroutines
+<a href="../../proc/torch_tensor_sum.html">torch_tensor_sum</a> and
+<a href="../../proc/torch_tensor_mean.html">torch_tensor_mean</a>, respectively.</p>
+<p>For details related to backpropagation using
+<a href="../../interface/torch_tensor_backward.html">torch_tensor_backward</a>, see the
+<a href="online.html">online training</a> documentation page.</p>
 <div class="footnote">
 <hr>
 <ol>

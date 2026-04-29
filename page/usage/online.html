@@ -85,7 +85,7 @@
         <div class="col">
           <ul class="list-inline" style="margin-bottom:0px; display:inline">
               <li class="list-inline-item" id="author"><i class="fa fa-pencil"></i> Joe Wallwork</li>
-              <li class="list-inline-item" id="date"><i class="fa fa-calendar-o"></i> Last Updated: April 2025</li>
+              <li class="list-inline-item" id="date"><i class="fa fa-calendar-o"></i> Last Updated: March 2026</li>
           </ul>
         </div>
         <div class="col">
@@ -124,6 +124,7 @@
                                 <a class="nav-link" href="generic_example.html">Generic Example</a>
               <a class="nav-link" href="worked_examples.html">Worked Examples</a>
               <a class="nav-link" href="tensor.html">Tensor API</a>
+              <a class="nav-link" href="optimizers.html">Optimizers API</a>
               <a class="nav-link" href="transposing.html">When to transpose data</a>
               <a class="nav-link" href="batching.html">Batching</a>
               <a class="nav-link" href="offline.html">Offline training</a>
@@ -143,6 +144,7 @@
                 <nav class="nav nav-pills flex-column">
                                 <a class="nav-link" href="../developer/developer.html">Developer Guide</a>
               <a class="nav-link" href="../developer/testing.html">FTorch test suite</a>
+              <a class="nav-link" href="../developer/release_checklist.html">Release Checklist</a>
 
                 </nav>
               <a class="nav-link" href="../LICENSE.html">FTorch License</a>
@@ -154,11 +156,65 @@
       <h2 id="online-training">Online Training</h2>
 <p>FTorch has supported offline training of ML models for some time (see the
 <a href="offline.html">offline training user guide page</a> for details). We are
-currently working on extending its functionality to support online training,
-too. This will involve exposing the backpropagation and optimization
+currently working on extending its functionality to support online training
+by exposing the backpropagation and optimization
 functionalities of PyTorch/LibTorch.</p>
-<p>In the following, we document a workplan of the related functionality. Each step
-below will be updated upon completion.</p>
+<p>Below we provide a schematic of the online training workflow, which is broken
+down into separate tasks below.</p>
+<p><img alt="schematic" src="../../media/usage/online.svg" title="Online training schematic"></p>
+<p>To set up online training, you will need to make use of the backpropagation and
+optimization functionalities of PyTorch/LibTorch, which have been exposed in
+FTorch. Details of how to do this are provided in the following.</p>
+<h4 id="1-design-the-ml-model-in-pytorch">1. Design the ML model in PyTorch</h4>
+<p>This task is identical to the offline case. It is done purely in Python and is
+not described here. See the
+<a href="https://pytorch.org/tutorials/beginner/introyt/modelsyt_tutorial.html">PyTorch documentation</a>
+for information on how to do this.</p>
+<h4 id="2-pt2ts">2. pt2ts</h4>
+<p>The scripting section comes earlier in the online workflow. Having written a
+model to a file with <code>.pt</code> extension, use the <code>pt2ts.py</code> utility Python script
+to convert it to TorchScript format. A template <code>pt2ts.py</code> script can be found
+in the <a href="https://github.com/Cambridge-ICCS/FTorch/tree/main/ftorch_utils"><code>utils</code></a>
+subdirectory. See the
+<a href="https://github.com/Cambridge-ICCS/FTorch/blob/main/ftorch_utils/README.md">README</a>
+there for more details on how to use the script.</p>
+<h4 id="3-data-generation-and-training">3. Data generation and training</h4>
+<p>In the online case, data generation and training are done in the same step,
+purely in Fortran. Code modifications are made so that we can run the Fortran
+model to generate training data and immediately use this training data (whilst
+in memory) to train the ML model. There is not necessarily an optimization loop
+in this case - one option is to take a pre-trained model and to continue
+improving it using data generated online.</p>
+<p>The training code should be set up such that the file containing the TorchScript
+model that was created in step 2 is read in at the start of the Fortran program
+and the modified ML model is written out to the same TorchScript file at the
+end of the Fortran program. This way, the model can be trained in multiple
+Fortran runs, with the same model being read.</p>
+<p><em>Note: Training and writing out models has not yet been implemented in FTorch,
+but is work in progress.</em></p>
+<h4 id="4-fortran-model-with-inference">4. Fortran model with inference</h4>
+<p>In order to run inference with the trained ML model, you will need to create
+another modified version of your Fortran model that loads the TorchScript model
+and uses FTorch syntax to set up appropriate <code>torch_tensor</code> and <code>torch_model</code>
+objects and call the <a href="../../proc/torch_model_forward.html">torch_model_forward</a>
+subroutine to run the inference. For
+examples of how to do this, see the
+<a href="https://github.com/Cambridge-ICCS/FTorch/tree/main/examples/10_Optimizers">optimizer worked example</a>.</p>
+<h3 id="defining-as-much-as-possible-in-the-model">Defining as much as possible in the model</h3>
+<p>The first thing to note is that it's best to define as much as possible in the
+PyTorch model before writing it to file. As well as layers, activation
+functions, and loss functions, PyTorch models can also contain expressions
+involving tensors, e.g., mathematical operations. If you intend to include such
+expressions in your code then it is best to do this in the model definition, if
+possible. This ensures that such operations are handled by LibTorch, meaning
+there can be no overheads related to the coupling with Fortran.</p>
+<p>If you have developed a custom loss function, for example, see if you can define
+it in PyTorch. Some functionality for handling tensor operations has been
+exposed in FTorch - as detailed below - but you will have the most functionality
+available to you if you write such code into your PyTorch model.</p>
+<p>Reasons that it might not be possible to write all of your operations into your
+PyTorch model include scripting errors for certain operations and advanced
+custom loss functions that involve downstream Fortran code.</p>
 <h3 id="operator-overloading">Operator overloading</h3>
 <p>Mathematical operators involving Tensors are overloaded, so that we can compute
 expressions involving outputs from one or more ML models. For more information
@@ -183,7 +239,7 @@ can be achieved by setting the scalar as a rank-1
 
 <p>For a concrete example of how to compute mathematical expressions involving
 Torch tensors, see the
-<a href="https://github.com/Cambridge-ICCS/FTorch/tree/main/examples/8_Autograd">autograd worked example</a>.</p>
+<a href="https://github.com/Cambridge-ICCS/FTorch/tree/main/examples/09_Autograd">autograd worked example</a>.</p>
 <h3 id="the-requires_grad-property">The <code>requires_grad</code> property</h3>
 <p>For Tensors that you would like to differentiate with respect to, be sure to
 set the <code>requires_grad</code> optional argument to <code>.true.</code> when you construct it.</p>
@@ -192,8 +248,9 @@ set the <code>requires_grad</code> optional argument to <code>.true.</code> when
 and computed another tensor in terms of an expression involving these, we can
 compute gradients of that tensor with respect to those that it depends on. This
 is achieved using the
-<a href="../../proc/torch_tensor_backward.html">torch_tensor_backward</a> subroutine. For
-example, for input tensors <code>a</code> and <code>b</code> and an output tensor <code>Q</code>:</p>
+<a href="../../interface/torch_tensor_backward.html">torch_tensor_backward</a> subroutine. For
+example, suppose we want to multiply two input tensors <code>a</code> and <code>b</code> to produce an
+output tensor <code>Q</code>:</p>
 <div class="codehilite"><pre><span></span><code><span class="k">call </span><span class="n">torch_tensor_from_array</span><span class="p">(</span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="n">in_data1</span><span class="p">,</span><span class="w"> </span><span class="n">tensor_layout</span><span class="p">,</span><span class="w"> </span><span class="n">torch_kCPU</span><span class="p">,</span><span class="w"> </span><span class="p">&amp;</span>
 <span class="w">                             </span><span class="n">requires_grad</span><span class="o">=</span><span class="p">.</span><span class="n">true</span><span class="p">.)</span>
 <span class="k">call </span><span class="n">torch_tensor_from_array</span><span class="p">(</span><span class="n">b</span><span class="p">,</span><span class="w"> </span><span class="n">in_data2</span><span class="p">,</span><span class="w"> </span><span class="n">tensor_layout</span><span class="p">,</span><span class="w"> </span><span class="n">torch_kCPU</span><span class="p">,</span><span class="w"> </span><span class="p">&amp;</span>
@@ -201,10 +258,24 @@ example, for input tensors <code>a</code> and <code>b</code> and an output tenso
 <span class="k">call </span><span class="n">torch_tensor_from_array</span><span class="p">(</span><span class="n">Q</span><span class="p">,</span><span class="w"> </span><span class="n">out_data1</span><span class="p">,</span><span class="w"> </span><span class="n">tensor_layout</span><span class="p">,</span><span class="w"> </span><span class="n">torch_kCPU</span><span class="p">)</span>
 
 <span class="n">Q</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">b</span>
-
-<span class="k">call </span><span class="n">torch_tensor_backward</span><span class="p">(</span><span class="n">Q</span><span class="p">)</span>
 </code></pre></div>
 
+<p>If the output tensor <code>Q</code> is scalar (which is a common case for the output of a
+neural network) then we can simply call</p>
+<div class="codehilite"><pre><span></span><code>call torch_tensor_backward(Q)
+</code></pre></div>
+
+<p>to perform the backpropagation. This will assume that the 'external gradient'
+used to scale the gradient calculation is just <code>1.0</code>.</p>
+<p>If the output tensor <code>Q</code> is not scalar or you wish to provide an external
+gradient other than <code>1.0</code>, you need to define this quantity as a
+<a href="../../type/torch_tensor.html">torch_tensor</a> and pass it as the second argument:</p>
+<div class="codehilite"><pre><span></span><code>call torch_tensor_backward(Q, external_gradient)
+</code></pre></div>
+
+<p>You can think of the external gradient as the direction in which we seek to
+compute the derivative. This is why there is no default for non-scalar outputs:
+there is no obvious choice.</p>
 <p>Following the example code above, we can extract gradients of <code>Q</code> with respect
 to <code>a</code> and/or <code>b</code>. To do this, we can use the
 <a href="../../proc/torch_tensor_get_gradient.html">torch_tensor_get_gradient</a> subroutine. That
@@ -219,7 +290,7 @@ is, for tensors <code>dQda</code> and <code>dQdb</code>:</p>
 <h4 id="retain_graph-argument"><code>retain_graph</code> argument</h4>
 <p>If you wish to call the backpropagation operator multiple times then you may
 need to make use of the <code>retain_graph</code> argument for
-<a href="../../proc/torch_tensor_backward.html">torch_tensor_backward</a>. This argument
+<a href="../../interface/torch_tensor_backward.html">torch_tensor_backward</a>. This argument
 accepts logical values and defaults to <code>.false.</code>, for consistency with PyTorch
 and LibTorch. According to the
 <a href="https://pytorch.org/docs/stable/generated/torch.Tensor.backward.html">PyTorch docs</a>,
@@ -250,16 +321,36 @@ gradients before computing the next gradient. This can be achieved using the
 <h4 id="extracting-gradients">Extracting gradients</h4>
 <p>Note that <a href="../../proc/torch_tensor_get_gradient.html">torch_tensor_get_gradient</a> must
 be called after every call to
-<a href="../../proc/torch_tensor_backward.html">torch_tensor_backward</a> or
+<a href="../../interface/torch_tensor_backward.html">torch_tensor_backward</a> or
 <a href="../../proc/torch_tensor_zero_grad.html">torch_tensor_zero_grad</a>, even if the
 gradient for the same tensor is being extracted into the same array. This is due
 to the way that pointers are handled on the C++ side.</p>
-<h3 id="optimisation">Optimisation</h3>
-<!--- Write as part of the API Documentation Pages ---->
-<p><em>Not yet implemented.</em></p>
+<h3 id="optimization">Optimization</h3>
+<p>FTorch now supports running optimizers. That is, it's possible to do training in
+Fortran as well as in Python.
+A summary is provided here, with more detailed information available on the
+<a href="optimizers.html">Optimizers API</a> page.</p>
+<p>To make use of optimizers in FTorch, you need the <code>torch_optim</code> derived type.
+This has two member subroutines as follows:</p>
+<ul>
+<li><code>torch_optim%zero_grad</code> (<a href="../../proc/torch_optim_zero_grad.html">torch_optim_zero_grad</a>),
+  which zeroes all tensors associated with the
+  optimizer. This should be called at the beginning of every step of the
+  optimization loop.</li>
+<li><code>torch_optim%step</code> (<a href="../../proc/torch_optim_step.html">torch_optim_step</a>),
+  which takes an iteration of the optimization method.</li>
+</ul>
+<p>The <a href="https://github.com/Cambridge-ICCS/FTorch/tree/main/examples/10_Optimizers">optimizer worked example</a>
+is probably the best place to get started to see how to use the functionality.</p>
 <h3 id="loss-functions">Loss functions</h3>
-<!--- Write as part of the API Documentation Pages ---->
-<p><em>Not yet implemented.</em></p>
+<p>The loss function classes defined in PyTorch/LibTorch have not yet been exposed
+in FTorch. However, the <a href="../../proc/torch_tensor_sum.html">torch_tensor_sum</a> and
+<a href="../../proc/torch_tensor_mean.html">torch_tensor_mean</a> reduction
+operators have been provided, which should be sufficient for simple loss
+functions such as the mean-square-error (MSE).</p>
+<p>See the <a href="https://github.com/Cambridge-ICCS/FTorch/tree/main/examples/10_Optimizers">optimizer worked example</a>
+for an example of how to use <a href="../../proc/torch_tensor_mean.html">torch_tensor_mean</a>
+to define a MSE loss function.</p>
     </div>
   </div>
       <hr>
